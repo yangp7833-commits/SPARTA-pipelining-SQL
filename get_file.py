@@ -29,8 +29,8 @@ class finder:
         
     def parse(self):
         if self.tool == "SPARTA":
-            info, date, JSON_headers, file_path = self.parse_SPARTA()
-            return info, date, JSON_headers, file_path
+            info, date, JSON_headers, file_path, tool = self.parse_SPARTA()
+            return info, date, JSON_headers, file_path, tool
         else:
             print("No parsing method available for the identified tool.")
 
@@ -49,8 +49,8 @@ class finder:
                 print(f"Processing SPARTA run: {file_path}")  
                 parser = SPARTA_parser(file_path) 
             
-                info, date, JSON_headers, file_path = parser.export_data(file_path)
-                return info, date, JSON_headers, file_path
+                info, date, JSON_headers, file_path= parser.export_data(file_path)
+                return info, date, JSON_headers, file_path, "SPARTA"
 
             
     

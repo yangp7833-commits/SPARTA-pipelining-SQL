@@ -21,7 +21,7 @@ class SPARTA_parser:
     def parse_csv_files(self, file_path):
         clean_headers = {'log2FoldChange': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
                         'pvalue': ['p-value', 'pvalue'], 'padj':['padj', 'false discovery rate', 'fdr'], 
-                        'Gene':['gene'], 'logCPM':['logcpm, basemean'] }
+                        'Gene':['gene'], 'logCPM':['logcpm', 'basemean'] }
         with open(file_path, 'r') as f:
             
             reader=csv.DictReader(f, delimiter='\t')
@@ -45,8 +45,8 @@ class SPARTA_parser:
         reader, JSON_headers=self.parse_csv_files(file_path)
         date=self.find_date(file_path)
         
-        print(reader, date, JSON_headers)
         return reader, date, JSON_headers, file_path
+    
             
             
     
