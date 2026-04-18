@@ -4,7 +4,7 @@ import sqlite3
 import os
 from contextlib import closing
 
-class SPARTA_parser:
+class parser:
 
     def __init__(self, file_path=None):
         self.file_path = file_path
@@ -15,14 +15,14 @@ class SPARTA_parser:
         if match:
             return match.group(1)
         else:
-            path=Path(file_path)
+            path=Path(self.file_path)
             return path.stat().st_mtime
 
     def parse_csv_files(self, file_path):
         clean_headers = {'log2FoldChange': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
                         'pvalue': ['p-value', 'pvalue'], 'padj':['padj', 'false discovery rate', 'fdr'], 
                         'Gene':['gene'], 'logCPM':['logcpm', 'basemean']}
-        with open(file_path, 'r') as f:
+        with open(self.file_path, 'r') as f:
             
             reader=csv.DictReader(f, delimiter='\t')
             JSON_headers=[]
@@ -41,11 +41,11 @@ class SPARTA_parser:
                 
             return list(reader), JSON_headers
     
-    def export_data(self, file_path):
-        reader, JSON_headers=self.parse_csv_files(file_path)
-        date=self.find_date(file_path)
+    def export_data(self):
+        reader, JSON_headers=self.parse_csv_files(self.file_path)
+        date=self.find_date(self.file_path)
         
-        return reader, date, JSON_headers, file_path
+        return reader, date, JSON_headers, self.file_path
     
             
             

@@ -2,7 +2,7 @@
 
 from get_file import finder
 from db_manager import DBManager
-from parser import SPARTA_parser
+from parser import parser
 
 def clean_query(query, table, sort_by=None, limit=None):
     columns= {'experiment_id': ['experiment_id', 'experiment id', 'experiment_number', 'experiment number'], 
@@ -50,7 +50,6 @@ def clean_query(query, table, sort_by=None, limit=None):
 # Master function to parse and store data. Identifies data, parses the arguments, and stores it in the database.
 def parse_and_store(file_path):
     f=finder(file_path)
-    f.identify_tool()
     info, date, JSON_headers, file_path, tool = f.parse()
     sql=DBManager()
     sql.connect()
@@ -83,7 +82,7 @@ def view_gene_results(query=None, sort_by=None, limit=None):
         print(f"Error executing query: {e}")
     sql.close()
 
-#parse_and_store('/workspaces/SPARTA-pipelining-SQL/RNAseq_Data')
+parse_and_store('/workspaces/SPARTA-pipelining-SQL/RNAseq_Data/2024-03-29/DEanalysis/all_genes_DGE')
 
 view_gene_results(query=None, sort_by='log2FoldChange')
 
