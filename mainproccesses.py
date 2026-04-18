@@ -4,15 +4,24 @@ from get_file import finder
 from db_manager import DBManager
 from parser import SPARTA_parser
 
-def clean_query(query, table):
+def clean_query(query, table, sort_by=None, limit=None):
     columns= {'experiment_id': ['experiment_id', 'experiment id', 'experiment_number', 'experiment number'], 
     'tool': ['tool', 'software', 'pipeline', 'program'], 'date': ['date', 'time'], 'file': ['file', 'filepath', 'file path', 'file_location', 'file location', 'file_name', 'file name'], 
-    'experiment_name': ['experiment_name', 'experiment name'], 'comparison_label': ['comparison_label', 'comparison label', 'comparison name', 'comparison_name']} #dictionary of possible column names and their variants.
+    'experiment_name': ['experiment_name', 'experiment name'], 'comparison_label': ['comparison_label', 'comparison label', 'comparison name', 'comparison_name'], 
+    'log2FoldChange': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
+    'pvalue': ['p-value', 'pvalue'], 'padj':['padj', 'false discovery rate', 'fdr'], 'Gene':['gene'], 'logCPM':['logcpm', 'basemean']} #dictionary of possible column names and their variants.
     # Takes a user query and turns it into a SQL query by splitting individual queries by
     #commas, then splitting each query into column, operator, and value. 
     #Construct the SQL query with parameterized values to prevent SQL injection.
+    if sort_by is None:
+        sort_by=""
+    elif sort_by.lower() in columns['log2FoldChange']:
+        sort_by='ORDER BY log2fc DESC'
+    elif sort_by.lower() in columns['pvalue']:
+        sort_by='ORDER BY pvalue ASC'
+
     if query is None:
-        query= f"SELECT * FROM {table}"
+        query= f"SELECT * FROM {table}"+ (f' {sort_by}' if sort_by else "") + (f' LIMIT {limit}' if limit else "")
         return query, None
     else:
         query=query.split(',')
@@ -34,7 +43,7 @@ def clean_query(query, table):
                 return
 
                     
-        query = f"SELECT * FROM {table} WHERE " + " AND ".join(where_clauses)
+        query = f"SELECT * FROM {table} WHERE " + " AND ".join(where_clauses)+ (f' {sort_by}' if sort_by else "") + (f' LIMIT {limit}' if limit else '')
         return query, values
         
     
@@ -51,8 +60,8 @@ def parse_and_store(file_path):
     sql.close()
 
 # Function to view data in the experiments table.
-def view_experiments(query=None): 
-    cleaned_query, values=clean_query(query, 'experimental_data')
+def view_experiments(query=None, limit=None): 
+    cleaned_query, values=clean_query(query, 'experimental_data', limit)
     sql=DBManager()
     sql.connect()
     try:
@@ -63,8 +72,8 @@ def view_experiments(query=None):
 
 
 # Function to view data in the gene_results table.
-def view_gene_results(query=None):
-    cleaned_query, values=clean_query(query, 'gene_results')
+def view_gene_results(query=None, sort_by=None, limit=None):
+    cleaned_query, values=clean_query(query, 'gene_results', sort_by, limit)
     print(cleaned_query, values)
     sql=DBManager()
     sql.connect()
@@ -76,6 +85,7 @@ def view_gene_results(query=None):
 
 #parse_and_store('/workspaces/SPARTA-pipelining-SQL/RNAseq_Data')
 
-view_experiments('experiment_id = 1')
+view_gene_results(query=None, sort_by='log2FoldChange')
+
 
 
