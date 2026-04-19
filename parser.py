@@ -9,16 +9,16 @@ class parser:
     def __init__(self, file_path=None):
         self.file_path = file_path
 
-    def find_date(self, file_path):
+    def find_date(self):
         date_pattern = re.compile(r'(\d{4}-\d{2}-\d{2})')
-        match = date_pattern.search(file_path)
+        match = date_pattern.search(self.file_path)
         if match:
             return match.group(1)
         else:
             path=Path(self.file_path)
             return path.stat().st_mtime
 
-    def parse_csv_files(self, file_path):
+    def parse_csv_files(self):
         clean_headers = {'log2FoldChange': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
                         'pvalue': ['p-value', 'pvalue'], 'padj':['padj', 'false discovery rate', 'fdr'], 
                         'Gene':['gene'], 'logCPM':['logcpm', 'basemean']}
@@ -42,8 +42,8 @@ class parser:
             return list(reader), JSON_headers
     
     def export_data(self):
-        reader, JSON_headers=self.parse_csv_files(self.file_path)
-        date=self.find_date(self.file_path)
+        reader, JSON_headers=self.parse_csv_files()
+        date=self.find_date()
         
         return reader, date, JSON_headers, self.file_path
     

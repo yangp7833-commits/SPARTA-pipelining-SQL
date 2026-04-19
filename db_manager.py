@@ -1,6 +1,9 @@
 #!/home/codespace/.python/current/bin/python3
 import sqlite3
 import re
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 class DBManager:
     def __init__(self, db_path='SQL.db'):
@@ -51,13 +54,10 @@ class DBManager:
         else: 
             results=self.cursor.execute(query, tuple(values)).fetchall()
         
-        try:
-            print("\n--- Registered Experiments ---")
-            for result in results:
-                print(f"Experiment ID: {result[0]} | tool: {result[1]} | date: {result[2]} | file: {result[3]} | experiment_name: {result[4]} | comparison_label: {result[5]}")
-        except IndexError:
+        if results[0][0]:
+            self.visualize_experiments(results)
+        else:
             print("No experiments found matching the query.")
-
         
     
     def list_gene_results(self, query, values=None):
@@ -66,12 +66,79 @@ class DBManager:
         else: 
             results=self.cursor.execute(query, tuple(values)).fetchall()
         
-        try:
-            print("\n--- Registered Gene Results ---")
-            for result in results:
-                print(f'Experiment ID: {result[1]} | gene_name: {result[2]} | log2fc: {result[3]} | logCPM: {result[4]} | pvalue: {result[5]} | padj: {result[6]}')
-        except IndexError:
+        if results[0][0]:
+            self.visualize_gene_results(results)
+        else:
             print("No gene results found matching the query.")
+    
+    def visualize_gene_results(self, results):
+        #visualizes data using the rich library.
+        console = Console()
+        table = Table(show_header=True, header_style="bold black", expand=True,  show_lines=True, show_edge=False, title="Gene Results", title_style="bold white on black")
+        table.add_column("Experiment Name", width=20)
+        table.add_column("Gene Name", width=20)
+        table.add_column("log2FoldChange", justify="right")
+        table.add_column("logCPM", justify="right")
+        table.add_column("p-value", justify="right")
+        table.add_column("padj", justify="right")
+        table.add_column("Other Info", justify="left")
+        
+        # Define styles for different value ranges
+        neutral_color='dim black'
+        significant_color='bold italic white on red3'
+        insignificant_color='bold italic white on blue3'
+        identifier_color='italic bold black'
+
+        #sorts all results by value and assigns styles based on thresholds.
+
+        for result in results:
+            experiment_name_cell = Text(str(result[1]), style=neutral_color)
+            gene_name_cell = Text(str(result[2]), style=neutral_color)
+            other_info_cell = Text(str(result[7]), style=neutral_color)
+            if result[3] > 1.0:
+                lfc_style = significant_color # White text on Green background
+            elif result[3] < -1.0:
+                lfc_style = insignificant_color   # White text on Red/Pink background
+            else:
+                lfc_style = neutral_color       # Standard dim text for noise
+            log2fc_cell=Text(str(result[3]), style=lfc_style)
+
+            if result[4] > 0:
+                logcpm_style = identifier_color
+            else:
+                logcpm_style = neutral_color
+            logcpm_cell = Text(str(result[4]), style=logcpm_style)
+
+            if result[6] < 0.05:
+                padj_style = identifier_color
+            else:
+                padj_style = neutral_color
+            padj_cell = Text(str(result[6]), style=padj_style)
+
+            if result[5] < 0.05:
+                pvalue_style = identifier_color
+            else:
+                pvalue_style = neutral_color
+            pvalue_cell = Text(str(result[5]), style=pvalue_style)
+
+            table.add_row(experiment_name_cell, gene_name_cell, log2fc_cell, logcpm_cell, pvalue_cell, padj_cell, other_info_cell)
+
+        console.print(table)
+
+    def visualize_experiments(self, results):
+        console = Console()
+        table = Table(show_header=True, header_style="bold black", expand=True,  show_lines=True, show_edge=False, title="Experiments", title_style="bold white on black")
+        table.add_column("Experiment ID", width=15)
+        table.add_column("Tool", width=20)
+        table.add_column("Date", width=20)
+        table.add_column("File Path", width=40)
+        table.add_column("Experiment Name", width=20)
+        table.add_column("Comparison Label", width=20)
+
+        for result in results:
+            table.add_row(str(result[0]), result[1], result[2], result[3], result[4], result[5])
+
+        console.print(table)
                 
         
 

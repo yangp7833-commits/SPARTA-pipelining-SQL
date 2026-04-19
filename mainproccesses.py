@@ -3,6 +3,7 @@
 from get_file import finder
 from db_manager import DBManager
 from parser import parser
+import sys
 
 def clean_query(query, table, sort_by=None, limit=None):
     columns= {'experiment_id': ['experiment_id', 'experiment id', 'experiment_number', 'experiment number'], 
@@ -21,7 +22,7 @@ def clean_query(query, table, sort_by=None, limit=None):
         sort_by='ORDER BY pvalue ASC'
 
     if query is None:
-        query= f"SELECT * FROM {table}"+ (f' {sort_by}' if sort_by else "") + (f' LIMIT {limit}' if limit else "")
+        query= f"SELECT * FROM {table}"+ (f' {sort_by}') + (f' LIMIT {limit}' if limit is not None else "")
         return query, None
     else:
         query=query.split(',')
@@ -40,10 +41,10 @@ def clean_query(query, table, sort_by=None, limit=None):
             else:
                 print('''Invalid filter format: try using column operator value,
                 separated by spaces, and separate multiple queries with commas''')
-                return
+                sys.exit()
 
                     
-        query = f"SELECT * FROM {table} WHERE " + " AND ".join(where_clauses)+ (f' {sort_by}' if sort_by else "") + (f' LIMIT {limit}' if limit else '')
+        query = f"SELECT * FROM {table} WHERE " + " AND ".join(where_clauses)+ (f' {sort_by}') + (f' LIMIT {limit}' if limit is not None else '')
         return query, values
         
     
@@ -80,11 +81,12 @@ def view_gene_results(query=None, sort_by=None, limit=None):
         sql.list_gene_results(cleaned_query, values)
     except Exception as e:
         print(f"Error executing query: {e}")
+    #sql.list_gene_results(cleaned_query, values)
     sql.close()
 
-parse_and_store('/workspaces/SPARTA-pipelining-SQL/RNAseq_Data/2024-03-29/DEanalysis/all_genes_DGE')
 
-view_gene_results(query=None, sort_by='log2FoldChange')
+
+view_gene_results()
 
 
 
