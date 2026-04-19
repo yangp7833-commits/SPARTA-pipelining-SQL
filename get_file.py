@@ -9,7 +9,7 @@ from pathlib import Path
 class finder:
 
     def __init__(self, start_dir):
-        self.start_dir=os.path.abspath(start_dir)
+        self.start_dir=start_dir
 
 
     
