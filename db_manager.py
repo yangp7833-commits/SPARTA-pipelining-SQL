@@ -2,6 +2,7 @@
 import sqlite3
 import re
 from rich.console import Console
+from rich import print as rprint
 from rich.table import Table
 from rich.text import Text
 
@@ -35,6 +36,10 @@ class DBManager:
     def create_experiment(self, tool, date, file_path):
         experiment_name=input('Enter a name for this experiment: ') # uses user input to get the experiment and comparison names
         comparison_label=input('Enter a comparison label for this experiment: ')
+        if ' ' in experiment_name or ' ' in comparison_label: # if there are spaces, throws error as it can cause problems with querying
+            experiment_name=experiment_name.replace(" ", "_")
+            comparison_label=comparison_label.replace(" ", "_")
+            rprint(f"[red]Spaces detected in experiment name or comparison label. Replacing spaces with underscores. Experiment name: {experiment_name}, Comparison label: {comparison_label}")
         self.cursor.execute("INSERT INTO experimental_data (tool, date, file, experiment_name, comparison_label) VALUES (?, ?, ?, ?, ?);", (tool, date, file_path, experiment_name, comparison_label))
         return self.cursor.lastrowid # returns the last row id so that the gene results from the file can all be inserted with the matching id
 
@@ -50,34 +55,42 @@ class DBManager:
             self.conn.close()
             
     # executes the query provided from the clean_query function. values are set to none by default if no specefic query is mentioned
-    def list_experiments(self, query, values=None):
+    def list_experiments(self, query, values=None, export=False):
         if values is None:
             results=self.cursor.execute(query).fetchall()
         else: 
             results=self.cursor.execute(query, tuple(values)).fetchall()
         
-        if results[0][0]: # if there are results, pass the iterable object on to the visualize function. else, return no results
+        if results[0][0] and export==False: # if there are results, pass the iterable object on to the visualize function. else, return no results
+            rprint(f"[green]Found {len(results)} results matching the query.")
             self.visualize_experiments(results)
+        elif results[0][0] and export==True: # if there are results and the user wanted to export, then we return the results instead of visualizing them
+            rprint(f"[green]exporting {len(results)} results matching the query. Exporting to CSV...") # if there are results and the user wanted to export, then we return the results instead of visualizing them
+            self.export_experiments(results)
         else:
-            print("No experiments found matching the query.")
+            rprint(f"[red]No experiments found matching the query.")
         
     # executes the query provided from the clean_query function. values are set to none by default if no specefic query is mentioned
-    def list_gene_results(self, query, values=None):
+    def list_gene_results(self, query, values=None, export=False):
         if values is None:
             results=self.cursor.execute(query).fetchall()
         else: 
             results=self.cursor.execute(query, tuple(values)).fetchall()
         
-        if results[0][0]: # if there are results, pass the iterable object on to the visualize function. else, return no results
+        if results[0][0] and export==False: # if there are results, pass the iterable object on to the visualize function. else, return no results
+            rprint(f"[green]Found {len(results)} results matching the query.")
             self.visualize_gene_results(results)
+        elif results[0][0] and export==True: # if there are results and the user wanted to export, then we return the results instead of visualizing them
+            rprint(f"[green]exporting {len(results)} results matching the query. Exporting to CSV...") # if there are results and the user wanted to export, then we return the results instead of visualizing them
+            self.export_gene_results(results)
         else:
-            print("No gene results found matching the query.")
+            rprint(f"[red]No gene results found matching the query.")
     
     def visualize_gene_results(self, results):
         #visualizes data using the rich library.
         console = Console()
         table = Table(show_header=True, header_style="bold black", expand=True,  show_lines=True, show_edge=False, title="Gene Results", title_style="bold white on black")
-        table.add_column("Experiment Name", width=20)
+        table.add_column("Experiment ID", width=20)
         table.add_column("Gene Name", width=20)
         table.add_column("log2FoldChange", justify="right")
         table.add_column("logCPM", justify="right")
@@ -144,6 +157,28 @@ class DBManager:
             table.add_row(str(result[0]), result[1], result[2], result[3], result[4], result[5])
 
         console.print(table)
+    
+    def export_gene_results(self, results):
+        file_name=input("Enter the file path to export to (including .csv extension): ") # gets the file path from the user
+        import csv
+        with open(file_name, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Experiment ID', 'Gene Name', 'log2FoldChange', 'logCPM', 'p-value', 'padj', 'Other Info'])
+            for result in results:
+                writer.writerow(result)
+        rprint(f"[green]Gene results successfully exported to {file_name}.")
+
+    def export_experiments(self, results):
+        file_name=input(f"Enter the file path to export to (including .csv extension): ") # gets the file path from the user
+        import csv
+        with open(file_name, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Experiment ID', 'Tool', 'Date', 'File Path', 'Experiment Name', 'Comparison Label'])
+            for result in results:
+                writer.writerow(result)
+        rprint(f"[green]Experimental data successfully exported to {file_name}.")
+    
+    
                 
         
 

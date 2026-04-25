@@ -13,6 +13,8 @@ def clean_query(query, table, sort_by=None, limit=None):
     'experiment_name': ['experiment_name', 'experiment name'], 'comparison_label': ['comparison_label', 'comparison label', 'comparison name', 'comparison_name'], 
     'log2fc': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
     'pvalue': ['p-value', 'pvalue'], 'padj':['padj', 'false discovery rate', 'fdr'], 'Gene':['gene'], 'logCPM':['logcpm', 'basemean']} #dictionary of possible column names and their variants.
+    
+    
     # Takes a user query and turns it into a SQL query by splitting individual queries by
     #commas, then splitting each query into column, operator, and value. 
     #Construct the SQL query with parameterized values to prevent SQL injection.
@@ -22,6 +24,11 @@ def clean_query(query, table, sort_by=None, limit=None):
         sort_by='ORDER BY log2fc DESC'
     elif sort_by.lower() in columns['pvalue']:
         sort_by='ORDER BY pvalue ASC'
+    elif sort_by.lower() in columns['padj']:
+        sort_by='ORDER BY padj ASC'
+    else:
+        rprint(f"[red]Invalid sort_by value: {sort_by}. Valid options are log2FoldChange, pvalue, or padj.")
+        sys.exit()
 
     if query is None: # if no query is provided, then uses the default select * query, along with the limit and sorting provided by the user
         query= f"SELECT * FROM {table}"+ (f' {sort_by}') + (f' LIMIT {limit}' if limit is not None else "")
@@ -66,28 +73,31 @@ def parse_and_store(file_path):
     sql.close() # finally, we close the connection
 
 # Function to view data in the experiments table.
-def view_experiments(query=None, limit=None): 
+def view_experiments(query=None, limit=None, export=False): 
     cleaned_query, values=clean_query(query, 'experimental_data', None, limit) # constructs the query from data given by the user
     sql=DBManager() # connects to the database
     sql.connect()
     try:
-        sql.list_experiments(cleaned_query, values)
+        sql.list_experiments(cleaned_query, values, export) # executes the query and lists the experiments using the DBmanager function
     except Exception as e:
         print(f"Error executing query: {e}")
     sql.close() # closes the connection
 
 
 # Function to view data in the gene_results table.
-def view_gene_results(query=None, sort_by=None, limit=None):
+def view_gene_results(query=None, sort_by=None, limit=None, export=False):
     cleaned_query, values=clean_query(query, 'gene_results', sort_by, limit) # first, we construct the query using the values provided by the user
     print(cleaned_query, values)
     sql=DBManager() # connects the DBmanager
     sql.connect()
     try: # tries to list the gene results
-        sql.list_gene_results(cleaned_query, values) # the list_gene_results will execute the query with the values, and then construct the table
+        sql.list_gene_results(cleaned_query, values, export) # the list_gene_results will execute the query with the values, and then construct the table
     except Exception as e: # if an error occurs, stop the function
         print(f"Error executing query: {e}")
     sql.close() # closes the connection
+
+
+
 
 #parse_and_store('/workspaces/SPARTA-pipelining-SQL/RNAseq_Data/2024-03-29/DEanalysis/all_genes_DGE')
 
