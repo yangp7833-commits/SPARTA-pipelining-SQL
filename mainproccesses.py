@@ -8,9 +8,9 @@ from rich import print as rprint
 
 # cleans the query provided by the user and constructs one in SQL format to be passed on to the DBmanager
 def clean_query(query, table, sort_by=None, limit=None):
-    columns= {'experiment_id': ['experiment_id', 'experiment id', 'experiment_number', 'experiment number', 'experimental_id', 'experimental id'], 
-    'tool': ['tool', 'software', 'pipeline', 'program'], 'date': ['date', 'time'], 'file': ['file', 'filepath', 'file path', 'file_location', 'file location', 'file_name', 'file name'], 
-    'experiment_name': ['experiment_name', 'experiment name'], 'comparison_label': ['comparison_label', 'comparison label', 'comparison name', 'comparison_name'], 
+    columns= {'experiment_id': ['experiment_id', 'experiment id', 'experiment_number', 'experimentnumber', 'experimental_id', 'experimentalid'], 
+    'tool': ['tool', 'software', 'pipeline', 'program'], 'date': ['date', 'time'], 'file': ['file', 'filepath', 'filepath', 'file_location', 'filelocation', 'file_name', 'filename'], 
+    'experiment_name': ['experiment_name', 'experimentname'], 'comparison_label': ['comparison_label', 'comparisonlabel', 'comparisonname', 'comparison_name'], 
     'log2fc': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
     'pvalue': ['p-value', 'pvalue'], 'padj':['padj', 'false discovery rate', 'fdr'], 'Gene':['gene'], 'logCPM':['logcpm', 'basemean']} #dictionary of possible column names and their variants.
     
@@ -55,6 +55,39 @@ def clean_query(query, table, sort_by=None, limit=None):
         # constructs the final query
         query = f"SELECT * FROM {table} WHERE " + " AND ".join(where_clauses)+ (f' {sort_by}') + (f' LIMIT {limit}' if limit is not None else '') # constructs the actual query
         return query, values # returns the query and the values to the db_manager
+
+def clean_deletion(query, table):
+    columns= {'experiment_id': ['experiment_id', 'experiment id', 'experiment_number', 'experiment number', 'experimental_id', 'experimental id'], 
+     'tool': ['tool', 'software', 'pipeline', 'program'], 'date': ['date', 'time'], 'file': ['file', 'filepath', 'file path', 'file_location', 'file location', 'file_name', 'file name'], 
+     'experiment_name': ['experiment_name', 'experiment name'], 'comparison_label': ['comparison_label', 'comparison label', 'comparison name', 'comparison_name'], 
+     'log2fc': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
+     'pvalue': ['p-value', 'pvalue'], 'padj':['padj', 'false discovery rate', 'fdr'], 'Gene':['gene'], 'logCPM':['logcpm', 'basemean']} #dictionary of possible column names and their variants.
+    if query is None:
+        rprint(f"[red]No query provided for deletion. Please provide a query to specify which rows to delete.")
+        
+    else:
+        query=query.split(',') # if the user used proper formatting, individual filters are seperated by commas, which are split by the script
+        where_clauses = [] # a list of the filters, all having the column, operator, and a ? 
+        values = [] # the values in the query, which will be used in the following function
+        for line in query: 
+            parts = line.strip().split(" ") # Strip removes accidental spaces
+            if len(parts) == 3:          # Ensure the query is in the format "column operator value"
+                col, op, val = parts
+                for cols, aliases in columns.items(): #cleans the headers using the dic
+                        if col.lower() in aliases:
+                            parts[0]=cols
+                            break
+                
+                where_clauses.append(f"{col} {op} ?") # appends the cleaned column and the operator along with a question mark
+                values.append(val) # the isolated value is also appended to the values list
+            else: # if the query is not in 3 parts, then the user used the wrong formatting
+                rprint("""[red]Invalid filter format: try using column operator value,
+                separated by spaces, and separate multiple queries with commas""")
+                
+
+        # constructs the final query
+        query = f"DELETE FROM {table} WHERE " + " AND ".join(where_clauses) # constructs the actual query
+        return query, values # returns the query and the values to the db_manager
         
     
 # Master function to parse and store data. Identifies data, parses the arguments, and stores it in the database.
@@ -80,7 +113,7 @@ def view_experiments(query=None, limit=None, export=False):
     try:
         sql.list_experiments(cleaned_query, values, export) # executes the query and lists the experiments using the DBmanager function
     except Exception as e:
-        print(f"Error executing query: {e}")
+        rprint(f"[red]Error executing query: {e}")
     sql.close() # closes the connection
 
 
@@ -93,13 +126,33 @@ def view_gene_results(query=None, sort_by=None, limit=None, export=False):
     try: # tries to list the gene results
         sql.list_gene_results(cleaned_query, values, export) # the list_gene_results will execute the query with the values, and then construct the table
     except Exception as e: # if an error occurs, stop the function
-        print(f"Error executing query: {e}")
+        rprint(f"[red]Error executing query: {e}")
+    sql.close() # closes the connection
+
+def delete_experiments(query):
+    cleaned_query, values=clean_deletion(query, 'experimental_data') # first, we construct the deletion query using the values provided by the user
+    sql=DBManager() # connects the DBmanager
+    sql.connect()
+    try: # tries to delete the experiments
+        sql.delete(cleaned_query, values) # the delete_experiments function will execute the deletion query with the values
+    except Exception as e: # if an error occurs, stop the function
+        rprint(f"[red]Error executing deletion query: {e}")
+    sql.close() # closes the connection
+
+def delete_gene_results(query):
+    cleaned_query, values=clean_deletion(query, 'gene_results') # first, we construct the deletion query using the values provided by the user
+    sql=DBManager() # connects the DBmanager
+    sql.connect()
+    try: # tries to delete the gene results
+        sql.delete(cleaned_query, values) # the delete_gene_results function will execute the deletion query with the values
+    except Exception as e: # if an error occurs, stop the function
+        rprint(f"[red]Error executing deletion query: {e}")
     sql.close() # closes the connection
 
 
 
 
-#parse_and_store('/workspaces/SPARTA-pipelining-SQL/RNAseq_Data/2024-03-29/DEanalysis/all_genes_DGE')
+
 
 
 

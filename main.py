@@ -12,10 +12,13 @@ def main():
     parser.add_argument('--store', type=str, help='Command to store file in database')
     parser.add_argument('-q_genes','--query_gene_results', type=str, help='SQL-like query to filter gene results', nargs='?', const="Default")
     parser.add_argument('-q_exp','--query_experimental_data', nargs='?', type=str, help='SQL-like query to filter experimental data', const="Default")
-    parser.add_argument('--sort_by', type=str, nargs='?', help='Column to sort results by (log2FoldChange or pvalue)', default='pvalue')
+    parser.add_argument('--sort_by', type=str, nargs='?', help='Column to sort results by (log2FoldChange or pvalue)', default='padj')
     parser.add_argument('--limit', type=int, help='Limit the number of results returned', default=1000)
     parser.add_argument('--export', help='Export query results to CSV instead of displaying them', nargs='?', const=True, default=False)
+    parser.add_argument('-del_genes','--delete_gene_results', type=str, help='SQL-like query to filter which gene results to delete', nargs='?', const='default')
+    parser.add_argument('-del_exp','--delete_experimental_data', type=str, help='SQL-like query to filter which experiments to delete', nargs='?', const='default')
     args = parser.parse_args()
+    
     if args.store: # triggers the store function if flag is detected
         args.file_path=args.store # finds file path provided
         if args.file_path: 
@@ -75,6 +78,28 @@ def main():
                 rprint(f'{error_color}Error occurred while listing experimental data: {e}')
                 sys.exit(1)
             sys.exit()
+        
+    if args.delete_gene_results:
+        if args.delete_gene_results=='default':
+            rprint(f"{error_color}No deletion query provided. Please provide a query to specify which gene results to delete.")
+            sys.exit(1)
+        try:
+            mainproccesses.delete_gene_results(args.delete_gene_results)
+        except Exception as e:
+            rprint(f'{error_color}Error occurred while deleting gene results: {e}')
+            sys.exit(1)
+        sys.exit()
+    if args.delete_experimental_data:
+        if args.delete_experimental_data=='default':
+            rprint(f"{error_color}No deletion query provided. Please provide a query to specify which experimental data to delete.")
+            sys.exit(1)
+
+        try:
+            mainproccesses.delete_experiments(args.delete_experimental_data)
+        except Exception as e:
+            rprint(f'{error_color}Error occurred while deleting experiments: {e}')
+            sys.exit(1)
+        sys.exit()
 
 if __name__ == "__main__":
     main()

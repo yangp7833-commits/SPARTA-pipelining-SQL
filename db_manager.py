@@ -27,9 +27,14 @@ class DBManager:
                             pvalue REAL,
                             padj REAL,
                             other_info TEXT,
-                            FOREIGN KEY (experiment_id) REFERENCES experimental_data(id) ON DELETE CASCADE)
+                            FOREIGN KEY (experiment_id) REFERENCES experimental_data(experimental_id) ON DELETE CASCADE)
                             ''')
+        self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_gene_experiment_id ON gene_results(experiment_id)')
 
+        self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_gene_padj ON gene_results(padj ASC)')
+
+       
+        self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_gene_name ON gene_results(gene_name)')
         self.conn.commit()
 
     # done before the gene results are entered. uses the data from the export_data function to create a new experiment
@@ -178,6 +183,20 @@ class DBManager:
                 writer.writerow(result)
         rprint(f"[green]Experimental data successfully exported to {file_name}.")
     
+    def delete(self, query, values):
+        count=self.cursor.execute(query.replace('DELETE', 'SELECT COUNT(*)'), tuple(values)).fetchone()[0] # first, we execute a count query to see how many rows will be deleted with the provided query and values
+        if count>1000: # if the deletion will affect more than 1000 rows, we ask the user to confirm before proceeding
+            rprint(f"[red]Warning: This deletion will affect {count} rows. Are you sure you want to proceed? (yes/no)")
+            confirmation=input().lower()
+            if confirmation != 'yes' or confirmation=='':
+                rprint(f"[green]Deletion cancelled.")
+                return
+        elif count==0: # if no rows will be affected, we can stop the function and return
+            rprint(f"[red]No rows found matching the deletion query. Deletion cancelled.")
+            return
+        self.cursor.execute(query, tuple(values)) # executes the deletion query with the values provided by the user
+        self.conn.commit()
+        rprint(f"[green]Deletion successful. {count} rows deleted.")
     
                 
         
