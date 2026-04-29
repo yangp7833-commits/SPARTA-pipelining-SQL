@@ -27,7 +27,7 @@ class DBManager:
                             pvalue REAL,
                             padj REAL,
                             other_info TEXT,
-                            FOREIGN KEY (experiment_id) REFERENCES experimental_data(experimental_id) ON DELETE CASCADE)
+                            FOREIGN KEY (experiment_id) REFERENCES experimental_data(experiment_id) ON DELETE CASCADE)
                             ''')
         self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_gene_experiment_id ON gene_results(experiment_id)')
 
@@ -38,9 +38,11 @@ class DBManager:
         self.conn.commit()
 
     # done before the gene results are entered. uses the data from the export_data function to create a new experiment
-    def create_experiment(self, tool, date, file_path):
-        experiment_name=input('Enter a name for this experiment: ') # uses user input to get the experiment and comparison names
-        comparison_label=input('Enter a comparison label for this experiment: ')
+    def create_experiment(self, tool, date, file_path, experiment_name=None, comparison_label=None):
+        if experiment_name is None:
+            experiment_name=input('Enter a name for this experiment: ') # uses user input to get the experiment and comparison names
+        if comparison_label is None:
+            comparison_label=input('Enter a comparison label for this experiment: ')
         if ' ' in experiment_name or ' ' in comparison_label: # if there are spaces, throws error as it can cause problems with querying
             experiment_name=experiment_name.replace(" ", "_")
             comparison_label=comparison_label.replace(" ", "_")
@@ -52,44 +54,51 @@ class DBManager:
     def insert_gene_results(self, info, JSON_headers, id):
         query = "INSERT INTO gene_results (experiment_id, gene_name, log2fc, logCPM, pvalue, padj, other_info) VALUES (?, ?, ?, ?, ?, ?, ?);"
         for row in info:
-            self.cursor.execute(query, (id, row['Gene'], row['log2FoldChange'], row['logCPM'], row['pvalue'], row['padj'], str({h: row[h] for h in JSON_headers}))) # the last row is done in dictionary format and turned into a string, resembling JSON format
+            self.cursor.execute(query, (id, row['Gene'], row['log2FoldChange'], row['logCPM'], row['pvalue'], row['padj'], row['extra_info'])) # the last row is done in dictionary format and turned into a string, resembling JSON format
         self.conn.commit()
+    
+    def insert_to_database(self, tool, date, file_path, info, experiment_name=None, comparison_label=None):
+        id=self.create_experiment(tool, date, file_path, experiment_name, comparison_label) # creates the experiment and gets the id
+        self.insert_gene_results(info, id) # inserts the gene results with the matching id
 
     def close(self):
         if self.conn:
             self.conn.close()
             
-    # executes the query provided from the clean_query function. values are set to none by default if no specefic query is mentioned
-    def list_experiments(self, query, values=None, export=False):
-        if values is None:
-            results=self.cursor.execute(query).fetchall()
-        else: 
-            results=self.cursor.execute(query, tuple(values)).fetchall()
-        
-        if results[0][0] and export==False: # if there are results, pass the iterable object on to the visualize function. else, return no results
-            rprint(f"[green]Found {len(results)} results matching the query.")
-            self.visualize_experiments(results)
-        elif results[0][0] and export==True: # if there are results and the user wanted to export, then we return the results instead of visualizing them
-            rprint(f"[green]exporting {len(results)} results matching the query. Exporting to CSV...") # if there are results and the user wanted to export, then we return the results instead of visualizing them
-            self.export_experiments(results)
-        else:
-            rprint(f"[red]No experiments found matching the query.")
+   
         
     # executes the query provided from the clean_query function. values are set to none by default if no specefic query is mentioned
-    def list_gene_results(self, query, values=None, export=False):
-        if values is None:
-            results=self.cursor.execute(query).fetchall()
-        else: 
-            results=self.cursor.execute(query, tuple(values)).fetchall()
-        
-        if results[0][0] and export==False: # if there are results, pass the iterable object on to the visualize function. else, return no results
-            rprint(f"[green]Found {len(results)} results matching the query.")
-            self.visualize_gene_results(results)
-        elif results[0][0] and export==True: # if there are results and the user wanted to export, then we return the results instead of visualizing them
-            rprint(f"[green]exporting {len(results)} results matching the query. Exporting to CSV...") # if there are results and the user wanted to export, then we return the results instead of visualizing them
-            self.export_gene_results(results)
-        else:
-            rprint(f"[red]No gene results found matching the query.")
+    def query(self, table,**filters):
+       
+        # Check if the table exists in the database
+        self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (table,))
+        if not self.cursor.fetchone():
+            rprint(f"[red]Error: Table '{table}' does not exist in the database.")
+            rprint(f"[yellow]Available tables:")
+            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            available_tables = self.cursor.fetchall()
+            for available_table in available_tables:
+                rprint(f"  - {available_table[0]}")
+            return
+        #constructs the query based on filters    
+        query = f'SELECT * FROM {table} where 1=1'
+        for column, value in filters.items():
+            column = column.split('__')
+            if len(column) == 2 and column[1] in ['gt', 'lt', 'gte', 'lte', 'ne']:
+                operator = {
+                    'gt': '>',
+                    'lt': '<',
+                    'gte': '>=',
+                    'lte': '<=',
+                    'ne': '!='
+                }[column[1]]
+                query += f' AND {column[0]} {operator} ?'
+            else:
+                raise ValueError(f'Invalid filter: {column}')
+
+        results=self.cursor.execute(query, tuple(filters.values())).fetchall()
+        return results
+       
     
     def visualize_gene_results(self, results):
         #visualizes data using the rich library.

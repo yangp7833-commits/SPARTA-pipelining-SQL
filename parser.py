@@ -1,55 +1,78 @@
+#!/home/codespace/.python/current/bin/python3
 import csv
 import re
 import sqlite3
 import os
-from contextlib import closing
 from pathlib import Path
+import pandas as pd
+import json
 
-class parser:
+# finds the date of the file path, is activated by the export_data function
+def find_date(file_path):
+    date_pattern = re.compile(r'(\d{4}-\d{2}-\d{2})') 
+    match = date_pattern.search(file_path) # first tries to find the date using regex on the file name
+    if match:
+        return match.group(1)
+    else: # if the search doesn't work, then uses the path library to find the time, or else uses none
+        path=Path(file_path)
+        return path.stat().st_mtime if path.stat().st_mtime else None
 
-    # the file path is provided by the user, and is passed from the get_file.py to here
-    def __init__(self, file_path=None):
-        self.file_path = file_path
+# parses the csv files, is activated by the export_data function
+def parse_csv_files(file_path):
+    file_path = os.path.abspath(file_path)
 
-    # finds the date of the file path, is activated by the export_data function
-    def find_date(self):
-        date_pattern = re.compile(r'(\d{4}-\d{2}-\d{2})') 
-        match = date_pattern.search(self.file_path) # first tries to find the date using regex on the file name
-        if match:
-            return match.group(1)
-        else: # if the search doesn't work, then uses the path library to find the time, or else uses none
-            path=Path(self.file_path)
-            return path.stat().st_mtime if path.stat().st_mtime else None
+    # 1. Check if file exists and is not empty before processing
+    if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+        print(f"Error: File {file_path} is empty or missing.")
+        return None
 
-    # function that parses the csv files
-    def parse_csv_files(self):
-        clean_headers = {'log2FoldChange': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
-                        'pvalue': ['p-value', 'pvalue'], 'padj':['padj', 'false discovery rate', 'fdr'], 
-                        'Gene':['gene'], 'logCPM':['logcpm', 'basemean']} # dictionary to clean headers
-        with open(self.file_path, 'r') as f:
-            
-            reader=csv.DictReader(f, delimiter='\t') # reads the CSV the first time in order to find the headers
-            JSON_headers=[] #JSON_headers are for extra columns that aren't in the SQL database
-            
-            for header in reader.fieldnames: # for each column in the file, clean it into the appropriate column
-                success=False # we detect a match in the columns this way
-                for key, variants in clean_headers.items(): 
-                    if header.lower().strip() in variants: #checks if the header in the csv matches any of the SQL column variants
-                        reader.fieldnames[reader.fieldnames.index(header)] = key # if so, matches it to our SQL database
-                        success=True
-                        break
-                if success==False:
-                    print(f"Unrecognized header '{header}' converted to JSON format.") # if none of them match, the header is converted to JSON in the extra info column
-                    JSON_headers.append(header)
-            reader=csv.DictReader(f, delimiter='\t', fieldnames=reader.fieldnames) # reads the new CSV
-                
-            return list(reader), JSON_headers # returns the iterable along with the JSON headers
+    clean_headers = {
+        'log2FoldChange': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
+        'pvalue': ['p-value', 'pvalue'], 
+        'padj': ['padj', 'false discovery rate', 'fdr'], 
+        'Gene': ['gene'], 
+        'logCPM': ['logcpm', 'basemean']
+    }
+
+    try:
+        # 2. Use engine='python' to help the sniffer avoid 'NoneType' errors
+        df = pd.read_csv(file_path, sep=None, engine='python')
+    except Exception as e:
+        print(f"Failed to parse CSV: {e}")
+        return None
+
+    rename_dict = {}
+
+    # Standardize headers for comparison
+    for col in df.columns:
+        clean_col = col.lower().strip()
+        for key, variants in clean_headers.items():
+            if clean_col in variants:
+                rename_dict[col] = key
+                break
+
+    # Identify extra columns
+    extra_columns = [col for col in df.columns if col not in rename_dict]
+
+    # Rename matching columns
+    df.rename(columns=rename_dict, inplace=True)
+
+    # Handle extra info
+    if extra_columns:
+        # Convert extra columns to a single JSON column
+        df['extra_info'] = df[extra_columns].apply(lambda x: json.dumps(x.to_dict()), axis=1)
+        # Drop original extra columns
+        df = df.drop(columns=extra_columns)
+
+    return df
+
+def export_data(file_path):
+    df=parse_csv_files(file_path) # calls the parse_csv_files function and gets the main info
+    date=find_date(file_path) # uses find_date function to find dates
     
-    def export_data(self):
-        reader, JSON_headers=self.parse_csv_files() # calls the parse_csv_files function and gets the main info
-        date=self.find_date() # uses find_date function to find dates
-        
-        return reader, date, JSON_headers, self.file_path # exports these to the DB manager
+    return df.to_dict('records'), date, file_path # exports these to the DB manager
+
+parse_csv_files("RNAseq_Data/2024-03-29/DEanalysis/all_genes_DGE")
     
             
             
