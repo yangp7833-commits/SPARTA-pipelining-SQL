@@ -41,15 +41,9 @@ def parse_csv_files(file_path):
         print(f"Failed to parse CSV: {e}")
         return None
 
-    rename_dict = {}
+    rename_dict = {original: standard for original in df.columns for standard, variants in clean_headers.items() if original.lower() in variants}
 
-    # Standardize headers for comparison
-    for col in df.columns:
-        clean_col = col.lower().strip()
-        for key, variants in clean_headers.items():
-            if clean_col in variants:
-                rename_dict[col] = key
-                break
+    
 
     # Identify extra columns
     extra_columns = [col for col in df.columns if col not in rename_dict]
@@ -60,9 +54,11 @@ def parse_csv_files(file_path):
     # Handle extra info
     if extra_columns:
         # Convert extra columns to a single JSON column
-        df['extra_info'] = df[extra_columns].apply(lambda x: json.dumps(x.to_dict()), axis=1)
+        df['extra_info'] = df[extra_columns].apply(json.dumps, axis=1)
         # Drop original extra columns
         df = df.drop(columns=extra_columns)
+    else:
+        df['extra_info'] = None
 
     return df
 
