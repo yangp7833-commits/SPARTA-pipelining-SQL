@@ -163,6 +163,7 @@ class DBManager:
         info['experiment_id'] = id
         
         insert_df = info[['experiment_id', 'gene_name', 'log2fc', 'logCPM', 'pvalue', 'padj', 'other_info']]
+        print(insert_df)
         print(insert_df['gene_name'])
         
         self.conn.execute(

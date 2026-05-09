@@ -30,7 +30,7 @@ def parse_csv_files(file_path):
         'log2FoldChange': ['log2fc', 'log2fold', 'log2foldchange', 'logfc'], 
         'pvalue': ['p-value', 'pvalue'], 
         'padj': ['padj', 'false discovery rate', 'fdr'], 
-        'Gene': ['gene'], 
+        'gene_name': ['gene', 'gene_id'], 
         'logCPM': ['logcpm', 'basemean']
     }
 
@@ -54,7 +54,7 @@ def parse_csv_files(file_path):
     # Handle extra info
     if extra_columns:
         # Convert extra columns to a single JSON column
-        df['extra_info'] = df[extra_columns].apply(json.dumps, axis=1)
+        df['extra_info'] = df[extra_columns].to_json(orient='records')
         # Drop original extra columns
         df = df.drop(columns=extra_columns)
     else:
@@ -68,7 +68,7 @@ def export_data(file_path):
     
     return df.to_dict('records'), date, file_path # exports these to the DB manager
 
-parse_csv_files("RNAseq_Data/2024-03-29/DEanalysis/all_genes_DGE")
+
     
             
             
