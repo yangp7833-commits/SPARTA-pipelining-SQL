@@ -55,8 +55,18 @@ def volcano_plot(df, padj=0.05, log2fc=1, plot_file=None, pvalue=None, significa
         for _, row in top_genes.iterrows():
             x = row['log2FoldChange']
             y = -np.log10(row[column])
-            texts.append(plt.text(x, y, str(row['gene_name']), fontsize=9, weight='bold'))
-        adjust_text(texts, arrowprops=dict(arrowstyle='-', color='black', lw=0.5), expand_points=(1.2, 1.2), expand_text=(1.2, 1.2))
+            texts.append(plt.text(x, y, str(row['gene_name']), fontsize=8, weight='bold'))
+        adjust_text(texts, 
+            # Repel from these coordinates
+            x=x, y=y, 
+            # Increase the repulsion area around points/text
+            expand_points=(1.5, 1.5), 
+            expand_text=(1.2, 1.2),
+            # Add arrows to link labels to points
+            arrowprops=dict(arrowstyle='-', color='black', lw=0.5),
+            # Important for volcano plots: prevents labels from flying off the chart
+            autoalign='xy',
+            only_move={'points':'xy', 'text':'xy'})
     
 
 
