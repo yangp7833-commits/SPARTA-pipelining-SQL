@@ -362,28 +362,13 @@ class DBManager:
        
    
     
-    def delete(self, table, **filters):
-        table_names = [t[0] for t in self.tables]
-        
-        if table not in table_names:
-            rprint(f"[red]Error: Table '{table}' does not exist in the database.")
-            rprint(f"[yellow]Available tables:")
-            for available_table in table_names:
-                rprint(f"  - {available_table}")
-            return
-        
-        if table == 'gene_results':
-            actual_columns = [col[3] for col in self.gene_columns]
-        elif table == 'experimental_data':
-            actual_columns = [col[3] for col in self.experiment_columns]
-        else:
-            cols = self.conn.execute(f"SELECT * FROM information_schema.columns WHERE table_name='{table}'").fetchall()
-            actual_columns = [col[3] for col in cols]
-        
+    def delete_gene_results(self, **filters):
+        actual_columns = [col[3] for col in self.gene_columns]
         normalized_filters = {}
-        if len(filters) == 0:
-            raise ValueError("No filters provided for deletion. Please provide at least one filter to specify which records to delete.")
-        
+    
+        if not filters:
+            raise ValueError("No filters provided. Don't delete everything by accident!")
+
         for filter_key, filter_value in filters.items():
             filter_column = filter_key.split('__')[0]
             filter_operator_suffix = '__' + filter_key.split('__')[1] if '__' in filter_key else ''
@@ -398,12 +383,15 @@ class DBManager:
                 rprint(f"[red]Error: Column '{filter_column}' does not exist in table '{table}'.")
                 rprint(f"[yellow]Available columns: {', '.join(actual_columns)}")
                 return
-            
+
+        for filter_key, filter_value in filters.items():
+            filter_column = filter_key.split('__')[0]
             normalized_filters[actual_column + filter_operator_suffix] = filter_value
-        
-        query = f'DELETE FROM {table} WHERE 1=1'
+
+        # 2. Build Query
+        query = 'DELETE FROM gene_results WHERE 1=1'
         params = []
-        
+    
         for column, value in normalized_filters.items():
             column_parts = column.split('__')
             if len(column_parts) == 1:
@@ -421,8 +409,78 @@ class DBManager:
                 raise ValueError(f'Invalid filter: {column}')
             params.append(value)
         
+            
+    
         self.conn.execute(query, params)
-        print(f"Successfully deleted records from {table} matching the specified filters.")
+        print('successfully deleted gene results')
+    
+
+        
+        
+        
+       
+
+    def delete_experiments(self, **filters):
+        actual_columns = [col[3] for col in self.experiment_columns]
+        normalized_filters = {}
+    
+        if len(filters) == 0:
+            raise ValueError("No filters provided for deletion.")
+    
+        # 1. Your existing normalization logic
+        for filter_key, filter_value in filters.items():
+            filter_column = filter_key.split('__')[0]
+            filter_operator_suffix = '__' + filter_key.split('__')[1] if '__' in filter_key else ''
+        
+            actual_column = None
+            for standard_col, variants in self.query_columns.items():
+                if filter_column.lower() in variants and standard_col in actual_columns:
+                    actual_column = standard_col
+                    break
+        
+            if not actual_column:
+            
+                rprint(f"[red]Error: Column '{filter_column}' does not exist in table 'experiments'.")
+                return
+        
+            normalized_filters[actual_column + filter_operator_suffix] = filter_value
+    
+    
+        where_clause = " WHERE 1=1"
+        params = []
+        for column, value in normalized_filters.items():
+            column_parts = column.split('__')
+            if len(column_parts) == 1:
+                where_clause += f' AND {column_parts[0]} = ?'
+            elif len(column_parts) == 2 and column_parts[1] in ['gt', 'lt', 'gte', 'lte', 'ne']:
+                operator = {'gt': '>', 'lt': '<', 'gte': '>=', 'lte': '<=', 'ne': '!='}[column_parts[1]]
+                where_clause += f' AND {column_parts[0]} {operator} ?'
+            params.append(value)
+
+   
+        try:
+            self.conn.execute("BEGIN TRANSACTION")
+        
+        
+            self.conn.execute(
+                f"DELETE FROM gene_results WHERE experiment_id IN (SELECT experiment_id FROM experimental_data {where_clause})", 
+                params
+            )
+            self.conn.commit()
+        
+        
+            self.conn.execute(f"DELETE FROM experimental_data {where_clause}", params)
+        
+            self.conn.commit()
+            print('deleted experiments and associated gene results')
+        
+        
+        except Exception as e:
+            self.conn.execute("ROLLBACK")
+            raise NameError(e)
+       
+
+        
     
     def execute_raw(self, query):
         self.conn.execute(query)
