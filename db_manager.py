@@ -157,19 +157,38 @@ class DBManager:
         
         
         
-        expected_cols = ["gene_name", "log2fc", "logCPM", "pvalue", "padj", "other_info"]
+        expected_cols = ["gene_name", "log2fc", "logCPM", "pvalue", "padj", 'other_info']
         for col in expected_cols:
             if col not in info.columns:
                 info[col] = None
         
         extra_columns = [col for col in info.columns if col not in expected_cols and col != 'experiment_id']
-        if len(extra_columns)>0:
-            extra_info=info[extra_columns].to_dict(orient='records')
-            info['other_info'] = [json.dumps(r) for r in extra_info]
-            info.drop(columns=extra_columns, inplace=True)
-        else:
-            info['other_info'] = None
         
+        if len(extra_columns) > 0:
+        # 1. Grab the extra data as dictionaries
+            extra_data = info[extra_columns].to_dict(orient='records')
+            info.drop(columns=extra_columns, inplace=True)
+    
+            if 'other_info' in info.columns:
+            # Standardize existing data into dictionaries (handles string JSONs or NaNs)
+                import json
+                existing_info = info['other_info'].apply(
+                lambda x: json.loads(x) if isinstance(x, str) else (x if isinstance(x, dict) else {})
+                )
+        
+                # Merge old and new dictionaries efficiently using a list comprehension
+                info['other_info'] = [
+                {**old, **new} if old else new 
+                for old, new in zip(existing_info, extra_data)
+                ]
+            else:
+            # If it didn't exist, safe to just assign it directly
+                info['other_info'] = new_extra_data
+        else:
+        # Only set to None if the column doesn't already exist
+            if 'other_info' not in info.columns:
+                info['other_info'] = None
+
         
         
         info['experiment_id'] = id

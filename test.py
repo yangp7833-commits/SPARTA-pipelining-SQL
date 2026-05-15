@@ -4,9 +4,8 @@ from db_manager import DBManager
 import re
 import viz
 with DBManager() as db:
-   #db.insert_to_database('data.txt')
-   db.delete_experiments(experiment_name='t')
-   df=db.query('gene_results')
-   print(df)
+   df=db.preprocess_df('data.txt', 1)
+   df2=db.preprocess_df(df, 1)
+   print(df2)
    
     
