@@ -4,8 +4,7 @@ from db_manager import DBManager
 import re
 import viz
 with DBManager() as db:
-   df=db.preprocess_df('data.txt', 1)
-   df2=db.preprocess_df(df, 1)
-   print(df2)
+   df=db.query(table='gene_results', gene_symbol='TP5', chromosome='chr17', experimet_id=4)
+   print(df)
    
     
